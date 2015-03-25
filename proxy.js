@@ -140,6 +140,10 @@ function onrequest (req, res) {
     eachHeader(req, function (key, value) {
       debug.request('Request Header: "%s: %s"', key, value);
       var keyLower = key.toLowerCase();
+      
+      if ('accept-encoding' === keyLower) {
+        return;
+      }
 
       if (!hasXForwardedFor && 'x-forwarded-for' === keyLower) {
         // append to existing "X-Forwarded-For" header
@@ -211,10 +215,17 @@ function onrequest (req, res) {
     proxyReq.on('response', function (proxyRes) {
       debug.proxyResponse('HTTP/1.1 %s', proxyRes.statusCode);
       gotResponse = true;
+      gotTextResponse = false;
 
       var headers = {};
       eachHeader(proxyRes, function (key, value) {
         debug.proxyResponse('Proxy Response Header: "%s: %s"', key, value);
+        keyLower = key.toLowerCase();
+        
+        if ('content-type' === keyLower && value.match(/text/i)) {
+          gotTextResponse = true;
+        }
+
         if (isHopByHop.test(key)) {
           debug.response('ignoring hop-by-hop header "%s"', key);
         } else {
@@ -229,13 +240,19 @@ function onrequest (req, res) {
         }
       });
 
-      if ((headers['Content-Type'] && headers['Content-Type'].match(/text/i)) || (headers['content-type'] && headers['content-type'].match(/text/i))) {
+      if (gotTextResponse) {
         var data = "";
         proxyRes.on('data', function (d) {
           data += d;
         });
         proxyRes.on('end', function () {
-          res.end(data.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ""));          
+          console.log(headers);
+          d = data.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+          delete headers['content-length'];
+          delete headers['Content-Length'];
+          headers['Content-Length'] = Buffer.byteLength(d);
+          res.writeHead(proxyRes.statusCode, headers);
+          res.end(d);
         });
       }
       else {
