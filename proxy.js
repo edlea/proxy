@@ -229,7 +229,7 @@ function onrequest (req, res) {
         }
       });
 
-      if (headers['Content-Type'] && headers['Content-Type'].match(/text/i)) {
+      if ((headers['Content-Type'] && headers['Content-Type'].match(/text/i) || (headers['content-type'] && headers['content-type'].match(/text/i)) {
         var data = "";
         proxyRes.on('data', function (d) {
           data += d;
