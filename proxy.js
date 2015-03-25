@@ -109,7 +109,7 @@ function eachHeader (obj, fn) {
  */
 
 function onrequest (req, res) {
-  debug.request('%s %s HTTP/%s ', req.method, req.url, req.httpVersion);
+  debug.proxyRequest('%s %s HTTP/%s ', req.method, req.url, req.httpVersion);
   var server = this;
   var socket = req.socket;
 
@@ -229,10 +229,22 @@ function onrequest (req, res) {
         }
       });
 
-      debug.response('HTTP/1.1 %s', proxyRes.statusCode);
-      res.writeHead(proxyRes.statusCode, headers);
-      proxyRes.pipe(res);
-      res.on('finish', onfinish);
+      if (headers['Content-Type'] && headers['Content-Type'].match(/text/i)) {
+        var data = "";
+        proxyRes.on('data', function (d) {
+          data += d;
+        });
+        proxyRes.on('end', function () {
+          res.end(data.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ""));          
+        });
+      }
+      else {
+        // Pipe through unmodified
+        debug.response('HTTP/1.1 %s', proxyRes.statusCode);
+        res.writeHead(proxyRes.statusCode, headers);
+        proxyRes.pipe(res);
+        res.on('finish', onfinish);
+      }
     });
     proxyReq.on('error', function (err) {
       debug.proxyResponse('proxy HTTP request "error" event\n%s', err.stack || err);
