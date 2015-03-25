@@ -246,7 +246,6 @@ function onrequest (req, res) {
           data += d;
         });
         proxyRes.on('end', function () {
-          console.log(headers);
           d = data.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
           delete headers['content-length'];
           delete headers['Content-Length'];
